@@ -13,7 +13,7 @@ namespace stojg\crop;
  */
 class CropFace extends CropEntropy
 {
-    const CLASSIFIER_FACE = '/classifier/haarcascade_frontalface_default.xml';
+    const CLASSIFIER_FACE = '/classifier/haarcascade_frontalface_alt.xml';
     const CLASSIFIER_PROFILE = '/classifier/haarcascade_profileface.xml';
 
     /**
@@ -75,6 +75,10 @@ class CropFace extends CropEntropy
     protected function getFaceListFromClassifier($classifier)
     {
         $faceList = face_detect($this->imagePath, __DIR__ . $classifier);
+
+        if (! $faceList && ! is_array($faceList)) {
+            $faceList = [];
+        }
 
         return $faceList;
     }
