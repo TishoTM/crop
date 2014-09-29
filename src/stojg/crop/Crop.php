@@ -99,14 +99,43 @@ abstract class Crop
      * @param  int              $targetHeight
      * @return boolean|\Imagick
      */
-    public function resizeAndCrop($targetWidth, $targetHeight)
+    public function resizeAndCrop($targetWidth, $targetHeight, $debug=false)
     {
+        // maybe we can first detect the main object from the image and then resize or crop
+        // --------------------------------------------------
+
         // First get the size that we can use to safely trim down the image without cropping any sides
         $crop = $this->getSafeResizeOffset($this->originalImage, $targetWidth, $targetHeight);
+        
+
+        // var_dump($crop); exit;
+
         // Resize the image
         $this->originalImage->resizeImage($crop['width'], $crop['height'], \Imagick::FILTER_CUBIC, .5);
         // Get the offset for cropping the image further
         $offset = $this->getSpecialOffset($this->originalImage, $targetWidth, $targetHeight);
+        
+
+         if (strpos($_SERVER['REQUEST_URI'], 'debug=1') !== false) {
+
+            $safeZones = $this->getSafeZoneList();
+
+            $drawing = new \ImagickDraw;
+        
+            $drawing->setStrokeColor( new \ImagickPixel( 'yellow' ) );
+            $drawing->setStrokeWidth(1);
+            $drawing->setFillOpacity(0);
+
+
+            foreach ($safeZones as $zone) {
+            
+                $drawing->rectangle($zone['left'], $zone['top'], $zone['right'], $zone['bottom']);    // Draw the rectangle
+
+                $this->originalImage->drawImage($drawing);
+            }
+            $this->display($this->originalImage);
+        }
+
         // Crop the image
         $this->originalImage->cropImage($targetWidth, $targetHeight, $offset['x'], $offset['y']);
 
@@ -201,6 +230,18 @@ abstract class Crop
             return $this->originalImage->getImageHeight();
         }
     }
+
+
+    /**
+     * Temp method
+     * for debugging purposes only
+     */
+    protected function display($image)
+    {
+        header("Content-type: image/".$image->getImageFormat());
+        echo $image;
+    }
+
 
     /**
      * get special offset for class

@@ -15,6 +15,7 @@ class CropFace extends CropEntropy
 {
     const CLASSIFIER_FACE = '/classifier/haarcascade_frontalface_alt.xml';
     const CLASSIFIER_PROFILE = '/classifier/haarcascade_profileface.xml';
+    const CLASSIFIER_BODY = '/classifier/haarcascade_fullbody.xml';
 
     /**
      * imagePath original image path
@@ -59,6 +60,8 @@ class CropFace extends CropEntropy
         $faceList = $this->getFaceListFromClassifier(self::CLASSIFIER_FACE);
 
         $profileList = $this->getFaceListFromClassifier(self::CLASSIFIER_PROFILE);
+        
+        // $bodyList = $this->getFaceListFromClassifier(self::CLASSIFIER_BODY);
 
         $faceList = array_merge($faceList, $profileList);
 
