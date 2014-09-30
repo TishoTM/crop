@@ -65,6 +65,10 @@ class CropFace extends CropEntropy
 
         $faceList = array_merge($faceList, $profileList);
 
+        // var_dump($faceList); exit;
+
+        // $faceList = [];
+
         return $faceList;
     }
 

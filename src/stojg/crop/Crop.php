@@ -101,43 +101,174 @@ abstract class Crop
      */
     public function resizeAndCrop($targetWidth, $targetHeight, $debug=false)
     {
+        // First get the size that we can use to safely trim down the image without cropping any sides
+        $crop = $this->getSafeResizeOffset($this->originalImage, $targetWidth, $targetHeight);
+
+
         // maybe we can first detect the main object from the image and then resize or crop
         // --------------------------------------------------
 
-        // First get the size that we can use to safely trim down the image without cropping any sides
-        $crop = $this->getSafeResizeOffset($this->originalImage, $targetWidth, $targetHeight);
-        
+        // the maximum we can scale down the image before we crop
+        $max_scale_down = $crop;
 
-        // var_dump($crop); exit;
+        $safeZones = $this->getSafeZoneList();
+
+
+        $imageSize = $this->originalImage->getImageGeometry();
+
+
+
+        // calc all the zones into one one big Safe Area
+        if (is_array($safeZones)) {
+
+            $safeArea = [
+                'left'=>$imageSize['width'],
+                'right'=>0,
+                'top'=>$imageSize['height'],
+                'bottom'=>0,
+            ];
+
+            foreach ($safeZones as $zone) {
+
+                $safeArea['left'] = $safeArea['left'] > $zone['left'] ? $zone['left'] : $safeArea['left'];
+                $safeArea['right'] = $safeArea['right'] < $zone['right'] ? $zone['right'] : $safeArea['right'];
+                $safeArea['top'] = $safeArea['top'] > $zone['top'] ? $zone['top'] : $safeArea['top'];
+                $safeArea['bottom'] = $safeArea['bottom'] < $zone['bottom'] ? $zone['bottom'] : $safeArea['bottom'];
+            
+                if ($safeArea['left'] < 0) $safeArea['left'] = 0;
+                if ($safeArea['top'] < 0) $safeArea['top'] = 0;
+
+            }
+        }
+
+
+        // $safeZone = $safeZones[0];
+        $safeAreaSize = [
+            'width' => $safeArea['right']-$safeArea['left'],
+            'height' => $safeArea['bottom']-$safeArea['top'],
+        ];
+
+
+        // calc the ratio between the targets and the image size
+        $canvas_w_ratio = $imageSize['width'] / $targetWidth;
+        $canvas_h_ratio = $imageSize['height'] / $targetHeight;
+
+        $canvas_ratio = $canvas_w_ratio;
+        if ($canvas_ratio > $canvas_h_ratio) {
+            $canvas_ratio = $canvas_h_ratio;
+        }
+
+
+        // var_dump($canvas_ratio); exit;      // 1.19.... 
+
+        // var_dump($imageSize);
+        // var_dump($safeAreaSize);
+        // exit;
+
+
+
+        // get the side from which we need to calculate ratio
+
+        // ratio between originalImage and object
+        $object_w_ratio = $imageSize['width'] / $safeAreaSize['width'];
+        // var_dump($w_ratio);
+        $object_h_ratio = $imageSize['height'] / $safeAreaSize['height'];
+        $object_ratio = $object_w_ratio;
+        // take the smaller ratio 
+        if ($object_w_ratio > $object_h_ratio) {
+            $object_ratio = $object_h_ratio;
+        }
+
+        // var_dump($object_ratio); exit;          // 2.14.....
+
+
+        // we need to check how much the safe area will scale down
+        // we have the canvas scaling down ratio, so use it
+        $scaled_down_safeArea = [
+            'width' => $safeAreaSize['width']/$canvas_ratio,
+            'height' => $safeAreaSize['height']/$canvas_ratio,
+        ];
+
+        // then compare the new smaller size to the targeted width and height
+
+        // if the new SafeArea size fits in the targetted dimensions
+        // so we do not need to scale the image down to the maximum
+
+        // if ($object_ratio < $canvas_ratio) {
+
+            // check if the ratio is bigger than 30 percent
+            if ($object_ratio > 1.3 && $canvas_ratio > 1.3) {
+
+                $object_ratio = 1.3;
+            
+                $crop = [
+                    'width' => $crop['width'] * $object_ratio,
+                    'height' => $crop['height'] * $object_ratio,
+                ];
+
+            }
+        // }
+
+
+        // -------------------------------------------------------------------------------------
+
 
         // Resize the image
         $this->originalImage->resizeImage($crop['width'], $crop['height'], \Imagick::FILTER_CUBIC, .5);
+        
+    
+
+        // $safeZones = $this->getSafeZoneList();
+
+
         // Get the offset for cropping the image further
         $offset = $this->getSpecialOffset($this->originalImage, $targetWidth, $targetHeight);
         
+        // var_dump($offset);
 
-         if (strpos($_SERVER['REQUEST_URI'], 'debug=1') !== false) {
+        // var_dump($safeAreaSize);
 
-            $safeZones = $this->getSafeZoneList();
+        // exit;
 
-            $drawing = new \ImagickDraw;
+
+        // if (($offset['x'] + $targetWidth < $safeAreaSize['width']) || ($offset['y'] + $targetHeight) < $safeAreaSize['height']) {
+
+        //     echo 'offff';
+        //     exit;
+
+        // }
+
+
+
+        // if (strpos($_SERVER['REQUEST_URI'], 'debug=1') !== false) {
+        //     $safeZones = $this->getSafeZoneList();    
+        // }
         
-            $drawing->setStrokeColor( new \ImagickPixel( 'yellow' ) );
-            $drawing->setStrokeWidth(1);
-            $drawing->setFillOpacity(0);
 
-
-            foreach ($safeZones as $zone) {
-            
-                $drawing->rectangle($zone['left'], $zone['top'], $zone['right'], $zone['bottom']);    // Draw the rectangle
-
-                $this->originalImage->drawImage($drawing);
-            }
-            $this->display($this->originalImage);
-        }
 
         // Crop the image
         $this->originalImage->cropImage($targetWidth, $targetHeight, $offset['x'], $offset['y']);
+
+
+
+
+        // if (strpos($_SERVER['REQUEST_URI'], 'debug=1') !== false) {
+
+        //     $drawing = new \ImagickDraw;
+        
+        //     $drawing->setStrokeColor( new \ImagickPixel( 'yellow' ) );
+        //     $drawing->setStrokeWidth(1);
+        //     $drawing->setFillOpacity(0);
+
+
+        //     foreach ($safeZones as $zone) {
+            
+        //         $drawing->rectangle($zone['left'], $zone['top'], $zone['right'], $zone['bottom']);    // Draw the rectangle
+
+        //         $this->originalImage->drawImage($drawing);
+        //     }
+        //     // $this->display($this->originalImage);
+        // }
 
         return $this->originalImage;
     }
