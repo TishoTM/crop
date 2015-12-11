@@ -32,7 +32,6 @@ class CropEntropy extends Crop
         return $this->getEntropyOffsets($original, $targetWidth, $targetHeight);
     }
 
-
     /**
      * Get the topleftX and topleftY that will can be passed to a cropping method.
      *
@@ -74,12 +73,19 @@ class CropEntropy extends Crop
         $originalWidth = $size['width'];
         $originalHeight = $size['height'];
 
-        $leftX = $this->slice($image, $originalWidth, $targetWidth, 'h');
-        $topY = $this->slice($image, $originalHeight, $targetHeight, 'v');
+        // landscape = 1
+        // portrait = 2
+
+        $slice_index = 1;
+        if ($originalWidth < $originalHeight) {
+            $slice_index = 2;
+        }
+
+        $leftX = $this->slice($image, $originalWidth, $targetWidth, 'h', $slice_index);
+        $topY = $this->slice($image, $originalHeight, $targetHeight, 'v', $slice_index);
 
         return array('x' => $leftX, 'y' => $topY);
     }
-
 
     /**
      * slice
@@ -91,13 +97,14 @@ class CropEntropy extends Crop
      * @access protected
      * @return void
      */
-    protected function slice($image, $originalSize, $targetSize, $axis)
+    protected function slice($image, $originalSize, $targetSize, $axis, $slice_index)
     {
         $aSlice = null;
         $bSlice = null;
 
         // Just an arbitrary size of slice size
-        $sliceSize = ceil(($originalSize - $targetSize) / 25);
+        // $sliceSize = ceil(($originalSize - $targetSize) / 25);
+        $sliceSize = ceil(($originalSize / $targetSize) * 10) * $slice_index;
 
         $aBottom = $originalSize;
         $aTop = 0;
@@ -177,6 +184,45 @@ class CropEntropy extends Crop
     protected function getSafeZoneList()
     {
         return array();
+    }
+
+    /**
+     * Safe zone list key
+     *
+     * @param $width
+     * @param $height
+     *
+     * @access protected
+     *
+     * @return string
+     */
+    protected function getSafeZoneKey($width, $height)
+    {
+        return sprintf("%s-%s", $width, $height);
+    }
+
+    /**
+     * Adjust the safe zone area list by ratio
+     * Avoid the detection again
+     * 
+     * @param string $key
+     * @param string $new_key
+     * @param float $ratio
+     */
+    protected function adjustSafeZoneList($key, $new_key, $ratio)
+    {
+        $safeZoneList = $this->safeZoneList[$key];
+
+        foreach ($safeZoneList as &$zone) {
+            $zone['left'] = $zone['left'] * $ratio;
+            $zone['top'] = $zone['top'] * $ratio;
+            $zone['right'] = $zone['right'] * $ratio;
+            $zone['bottom'] = $zone['bottom'] * $ratio;
+        }
+
+        $this->safeZoneList[$new_key] = $safeZoneList;
+
+        return;
     }
 
     /**

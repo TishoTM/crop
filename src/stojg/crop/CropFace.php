@@ -14,6 +14,12 @@ namespace stojg\crop;
 class CropFace extends CropEntropy
 {
     const CLASSIFIER_FACE = '/classifier/haarcascade_frontalface_alt.xml';
+    // const CLASSIFIER_EYES = '/classifier/frontalEyes35x16.xml';
+    const CLASSIFIER_EYES = '/classifier/Eyes22x5.1.xml';
+    const CLASSIFIER_PROFILE_EYES = '/classifier/haarcascade_eye.xml';
+    
+    // const CLASSIFIER_FACE = '/classifier/haarcascade_frontalface_alt_tree.xml';
+    
     const CLASSIFIER_PROFILE = '/classifier/haarcascade_profileface.xml';
     const CLASSIFIER_BODY = '/classifier/haarcascade_fullbody.xml';
 
@@ -58,18 +64,50 @@ class CropFace extends CropEntropy
         }
 
         $faceList = $this->getFaceListFromClassifier(self::CLASSIFIER_FACE);
-
         $profileList = $this->getFaceListFromClassifier(self::CLASSIFIER_PROFILE);
         
+        $facialEyesList = $this->getFaceListFromClassifier(self::CLASSIFIER_EYES);
+        
+        $profileEyesList = $this->getFaceListFromClassifier(self::CLASSIFIER_PROFILE_EYES);
+
         // $bodyList = $this->getFaceListFromClassifier(self::CLASSIFIER_BODY);
+
+        $faceList = $this->validateFaces($faceList, $facialEyesList);
+        
+        $profileList = $this->validateFaces($profileList, $profileEyesList);
 
         $faceList = array_merge($faceList, $profileList);
 
-        // var_dump($faceList); exit;
-
-        // $faceList = [];
-
         return $faceList;
+    }
+
+    /**
+     * Validate and filter the face detection by checking if there eyes detection inside
+     * 
+     * @param array $faces
+     * @param array $eyes
+     * @return array
+     */
+    protected function validateFaces($faces, $eyes = [])
+    {
+        if (count($faces) < 2 || !$eyes) {
+            return $faces;
+        }
+
+        return array_filter($faces, function($face) use ($eyes) {
+            $face_found = false;
+            foreach ($eyes as $i => $eyes_detection) {
+                if (
+                    ($eyes_detection['x'] > $face['x'] && $eyes_detection['x'] < ($face['x'] + $face['w'])) && 
+                    ($eyes_detection['y'] > $face['y'] && $eyes_detection['y'] < ($face['y'] + $face['h']))) {
+                    
+                    $face_found = true;
+                    unset($eyes[$i]);
+                    break;
+                }
+            }
+            return $face_found;
+        });
     }
 
     /**
@@ -113,6 +151,7 @@ class CropFace extends CropEntropy
 
             $safeZoneList = array();
             foreach ($faceList as $face) {
+                
                 $hw = ceil($face['w'] / 2);
                 $hh = ceil($face['h'] / 2);
                 $safeZone = array(

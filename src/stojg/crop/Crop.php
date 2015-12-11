@@ -33,6 +33,13 @@ abstract class Crop
     protected $baseDimension;
 
     /**
+     * Image Histogram
+     *
+     * @var array
+     */
+    protected $histogram;
+
+    /**
      * Profiling method
      */
     public static function start()
@@ -55,7 +62,7 @@ abstract class Crop
     /**
      *
      * @param string $imagePath - The path to an image to load. Paths can include wildcards for file names,
-     *							  or can be URLs.
+     *                            or can be URLs.
      */
     public function __construct($imagePath = null)
     {
@@ -104,19 +111,18 @@ abstract class Crop
     public function resizeAndCrop($targetWidth, $targetHeight, $debug=false)
     {
         if (strpos($_SERVER['REQUEST_URI'], 'debug=1') !== false) {
-            $this->debug = true;    
+            $this->debug = true;  
         }
+
+        // $this->debug = true;
 
         // First get the size that we can use to safely trim down the image without cropping any sides
         $crop = $this->getSafeResizeOffset($this->originalImage, $targetWidth, $targetHeight);
-
 
         // maybe we can first detect the main object from the image and then resize or crop
         // --------------------------------------------------
 
         $safeZones = $this->getSafeZoneList();
-
-        // var_dump($safeZones); exit;
 
         // calc all the zones into one one big Safe Area
         if (is_array($safeZones) && !empty($safeZones)) {
@@ -139,17 +145,12 @@ abstract class Crop
             
                 if ($safeArea['left'] < 0) $safeArea['left'] = 0;
                 if ($safeArea['top'] < 0) $safeArea['top'] = 0;
-
             }
-        
 
-
-            // $safeZone = $safeZones[0];
             $safeAreaSize = [
                 'width' => $safeArea['right']-$safeArea['left'],
                 'height' => $safeArea['bottom']-$safeArea['top'],
             ];
-
 
             // calc the ratio between the targets and the image size
             $canvas_w_ratio = $imageSize['width'] / $targetWidth;
@@ -159,15 +160,6 @@ abstract class Crop
             if ($canvas_ratio > $canvas_h_ratio) {
                 $canvas_ratio = $canvas_h_ratio;
             }
-
-
-            // var_dump($canvas_ratio); exit;      // 1.19.... 
-
-            // var_dump($imageSize);
-            // var_dump($safeAreaSize);
-            // exit;
-
-
 
             // get the side from which we need to calculate ratio
 
@@ -181,21 +173,8 @@ abstract class Crop
                 $object_ratio = $object_h_ratio;
             }
 
-            // var_dump($object_ratio); exit;          // 2.14.....
-
-
-            // we need to check how much the safe area will scale down
-            // we have the canvas scaling down ratio, so use it
-            $scaled_down_safeArea = [
-                'width' => $safeAreaSize['width']/$canvas_ratio,
-                'height' => $safeAreaSize['height']/$canvas_ratio,
-            ];
-
-            // then compare the new smaller size to the targeted width and height
-
             // if the new SafeArea size fits in the targetted dimensions
             // so we do not need to scale the image down to the maximum
-
 
             // check if the ratio is bigger than 30 percent
             if ($object_ratio > 1.3 && $canvas_ratio > 1.3) {
@@ -203,55 +182,44 @@ abstract class Crop
                 $object_ratio = 1.3;
             
                 $crop = [
-                    'width' => $crop['width'] * $object_ratio,
-                    'height' => $crop['height'] * $object_ratio,
+                    'width' => (int) $crop['width'] * $object_ratio,
+                    'height' => (int) $crop['height'] * $object_ratio,
                 ];
 
+                $key = $this->getSafeZoneKey($imageSize['width'], $imageSize['height']);
+                $new_key = $this->getSafeZoneKey($crop['width'], $crop['height']);
+                $this->adjustSafeZoneList($key, $new_key, $crop['width'] / $imageSize['width']);
             }
         }
 
         // -------------------------------------------------------------------------------------
 
-
         // Resize the image
         $this->originalImage->resizeImage($crop['width'], $crop['height'], \Imagick::FILTER_CUBIC, .5);
-        
-    
-
-        // $safeZones = $this->getSafeZoneList();
-
 
         // Get the offset for cropping the image further
         $offset = $this->getSpecialOffset($this->originalImage, $targetWidth, $targetHeight);
         
-        
-
         if ($this->debug) {
 
             $safeZones = $this->getSafeZoneList();
 
-            // var_dump($safeZones); exit;
-
             $drawing = new \ImagickDraw;
         
-            $drawing->setStrokeColor( new \ImagickPixel( 'yellow' ) );
+            $drawing->setStrokeColor(new \ImagickPixel('yellow'));
             $drawing->setStrokeWidth(1);
             $drawing->setFillOpacity(0);
 
-
             foreach ($safeZones as $zone) {
-            
-                $drawing->rectangle($zone['left'], $zone['top'], $zone['right'], $zone['bottom']);    // Draw the rectangle
-
+                $drawing->rectangle($zone['left'], $zone['top'], $zone['right'], $zone['bottom']);
+                // Draw the rectangle
                 $this->originalImage->drawImage($drawing);
             }
             // $this->display($this->originalImage);
         }
 
-
         // Crop the image
         $this->originalImage->cropImage($targetWidth, $targetHeight, $offset['x'], $offset['y']);
-
 
         return $this->originalImage;
     }
@@ -268,6 +236,7 @@ abstract class Crop
     protected function getSafeResizeOffset(\Imagick $image, $targetWidth, $targetHeight)
     {
         $source = $image->getImageGeometry();
+
         if (($source['width'] / $source['height']) < ($targetWidth / $targetHeight)) {
             $scale = $source['width'] / $targetWidth;
         } else {
