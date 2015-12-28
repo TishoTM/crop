@@ -37,7 +37,7 @@ class CropFace extends CropEntropy
      * @var array
      * @access protected
      */
-    protected $safeZoneList;
+    protected $safeZoneList=[];
 
     /**
      *
@@ -126,6 +126,25 @@ class CropFace extends CropEntropy
         }
 
         return $faceList;
+    }
+
+    /**
+     * Set the areas of the image
+     *
+     * @param array $list
+     */
+    public function setSpecialMetadata($list)
+    {
+        parent::setSpecialMetadata($list);
+
+        $size = $this->originalImage->getImageGeometry();
+        $key = $this->getSafeZoneKey($size['width'], $size['height']);
+
+        if (! array_key_exists($key, $this->safeZoneList)) {
+            $this->safeZoneList[$key] = $list;
+        }
+
+        return $this;
     }
 
     /**
