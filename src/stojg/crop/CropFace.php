@@ -159,7 +159,8 @@ class CropFace extends CropEntropy
             $this->safeZoneList = array();
         }
         // the local key is the current image width-height
-        $key = $this->originalImage->getImageWidth() . '-' . $this->originalImage->getImageHeight();
+        $key = $this->getSafeZoneKey($this->originalImage->getImageWidth(), $this->originalImage->getImageHeight());
+        // $key = $this->originalImage->getImageWidth() . '-' . $this->originalImage->getImageHeight();
 
         if (!isset($this->safeZoneList[$key])) {
             $faceList = $this->getFaceList();
