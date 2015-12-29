@@ -9,6 +9,8 @@ namespace stojg\crop;
  */
 abstract class Crop
 {
+    protected $debug = false;
+
     /**
      * Timer used for profiler / debugging
      *
@@ -50,6 +52,21 @@ abstract class Crop
      * @access protected
      */
     protected $baseDimension;
+
+    /**
+     * Image Histogram
+     *
+     * @var array
+     */
+    protected $histogram;
+
+    /**
+     * Image Special Points from the original size
+     * Used in face detection for caching the areas and later to restore them
+     *
+     * @var array
+     */
+    protected $cropMetadata;
 
     /**
      * Profiling method
@@ -188,6 +205,26 @@ abstract class Crop
         return $this;
     }
 
+    /*
+     * Set the Metadata specific to the cropping mechanism
+     *
+     * @param array $list
+     */
+    public function setSpecialMetadata($metadata)
+    {
+        $this->cropMetadata = $metadata;
+    }
+
+    /**
+     * Get the Metadata specific to the cropping mechanism
+     *
+     * @return array
+     */
+    public function getSpecialMetadata()
+    {
+        return $this->cropMetadata;
+    }
+
     /**
      * Resize and crop the image so it dimensions matches $targetWidth and $targetHeight
      *
@@ -195,7 +232,7 @@ abstract class Crop
      * @param  int              $targetHeight
      * @return boolean|\Imagick
      */
-    public function resizeAndCrop($targetWidth, $targetHeight)
+    public function resizeAndCrop($targetWidth, $targetHeight, $debug=false)
     {
         if ($this->getAutoOrient()) {
             $this->autoOrient();
@@ -203,10 +240,14 @@ abstract class Crop
 
         // First get the size that we can use to safely trim down the image without cropping any sides
         $crop = $this->getSafeResizeOffset($this->originalImage, $targetWidth, $targetHeight);
+
         // Resize the image
+
         $this->originalImage->resizeImage($crop['width'], $crop['height'], $this->getFilter(), $this->getBlur());
+
         // Get the offset for cropping the image further
         $offset = $this->getSpecialOffset($this->originalImage, $targetWidth, $targetHeight);
+
         // Crop the image
         $this->originalImage->cropImage($targetWidth, $targetHeight, $offset['x'], $offset['y']);
 
@@ -225,6 +266,7 @@ abstract class Crop
     protected function getSafeResizeOffset(\Imagick $image, $targetWidth, $targetHeight)
     {
         $source = $image->getImageGeometry();
+
         if (0 == $targetHeight || ($source['width'] / $source['height']) < ($targetWidth / $targetHeight)) {
             $scale = $source['width'] / $targetWidth;
         } else {
@@ -301,6 +343,18 @@ abstract class Crop
             return $this->originalImage->getImageHeight();
         }
     }
+
+
+    /**
+     * Temp method
+     * for debugging purposes only
+     */
+    protected function display($image)
+    {
+        header("Content-type: image/".$image->getImageFormat());
+        echo $image;
+    }
+
 
     /**
      * Applies EXIF orientation metadata to pixel data and removes the EXIF rotation
